@@ -8,4 +8,12 @@
     <artifactId>atm-console</artifactId>
     <version>1.0-SNAPSHOT</version>
 
+    <dependencies>
+        <dependency>
+            <groupId>io.github.pitzzahh</groupId>
+            <artifactId>automated-teller-machine-API</artifactId>
+            <version>1.0.0</version>
+        </dependency>
+    </dependencies>
+
 </project>
