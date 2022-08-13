@@ -38,7 +38,7 @@ import static com.github.pitzzahh.utilities.classes.enums.Status.CANNOT_PERFORM_
 public class Atm {
 
     private static AtmDAO atmDAO;
-    private static AtmService ATM_SERVICE;
+    private static AtmService service;
     private static DatabaseConnection databaseConnection;
     private static final Hashtable<String, Client> CLIENTS = new Hashtable<>();
     private static final Hashtable<String, List<Loan>> LOANS = new Hashtable<>();
@@ -50,10 +50,9 @@ public class Atm {
      */
     @SuppressWarnings("InfiniteLoopStatement")
     public static void main(String[] args)  {
-        ATM_SERVICE = new AtmService(atmDAO);
-        databaseConnection = new DatabaseConnection();
-        ATM_SERVICE.setDataSource().accept(
-                databaseConnection
+        service = new AtmService(atmDAO, databaseConnection);
+        service.setDataSource().accept(service
+                        .connection
                         .setDriverClassName("org.postgresql.Driver")
                         .setUrl("jdbc:postgresql://localhost/atm")
                         .setUsername("postgres")
@@ -121,14 +120,14 @@ public class Atm {
          * Loads all the clients from the database.
          */
         private static void loadClients() {
-            CLIENTS.putAll(ATM_SERVICE.getAllClients().get());
+            CLIENTS.putAll(service.getAllClients().get());
         }
 
         /**
          * Loads all the loans from the database.
          */
         private static void loadClientLoans() {
-            LOANS.putAll(ATM_SERVICE.getAllLoans().get());
+            LOANS.putAll(service.getAllLoans().get());
         }
 
         /**
@@ -203,7 +202,7 @@ public class Atm {
                         "╩ ╩═╩╝═╩╝" + YELLOW_BOLD + "  ╚═╝╩═╝╩╚═╝╝╚╝ ╩ \n"
                 );
                 var client = details(scanner);
-                return ATM_SERVICE.saveClient().apply(
+                return service.saveClient().apply(
                         new Client(
                                 client.accountNumber(),
                                 client.pin(),
@@ -322,7 +321,7 @@ public class Atm {
                     if (!searchAccount($an)) throw new IllegalStateException(String.format("\nACCOUNT: %s DOES NOT EXIST\n", $an));
                 }
                 CLIENTS.remove($an);
-                return ATM_SERVICE.removeClientByAccountNumber().apply($an);
+                return service.removeClientByAccountNumber().apply($an);
             }
 
             /**
@@ -459,9 +458,9 @@ public class Atm {
                 if (allLoans.size() == 1 && transaction == APPROVE) {
                     loan = allLoans.get(0);
                     client = CLIENTS.get(loan.accountNumber());
-                    return ATM_SERVICE.approveLoan().apply(mapLoan(loan), client);
+                    return service.approveLoan().apply(mapLoan(loan), client);
                 }
-                if (allLoans.size() == 1 && transaction == DECLINE) return ATM_SERVICE.declineLoan().apply(mapLoan(allLoans.get(0)));
+                if (allLoans.size() == 1 && transaction == DECLINE) return service.declineLoan().apply(mapLoan(allLoans.get(0)));
                 else {
                     println(CYAN_BOLD_BRIGHT + String.format("%s %s %s LOAN REQUEST" + RESET,
                             (transaction == APPROVE ? BLUE_BOLD : RED_BOLD),
@@ -485,8 +484,8 @@ public class Atm {
                     client = CLIENTS.get(loan.accountNumber());
                 }
 
-                if (transaction == APPROVE) return ATM_SERVICE.approveLoan().apply(mapLoan(loan), client);
-                else return ATM_SERVICE.declineLoan().apply(mapLoan(loan));
+                if (transaction == APPROVE) return service.approveLoan().apply(mapLoan(loan), client);
+                else return service.declineLoan().apply(mapLoan(loan));
             }
 
             // TODO: implement
@@ -517,7 +516,7 @@ public class Atm {
                     checkAccountNumberInput($an);
                     if (!searchLockedAccount($an)) throw new IllegalStateException(String.format("\nACCOUNT: %s DOES NOT EXIST\n", $an));
                 }
-                return ATM_SERVICE.updateClientAccountStatusByAccountNumber().apply($an, false);
+                return service.updateClientAccountStatusByAccountNumber().apply($an, false);
             }
 
             /**
@@ -657,10 +656,10 @@ public class Atm {
                         }
                         if ((cashToProcess < 100) && transaction == DEPOSIT) throw new IllegalStateException("\nCASH AMOUNT TO DEPOSIT SHOULD NOT BE LESS THAN 100\n");
                         if ((cashToProcess >= (80.0 / 100.0) * client.savings()) && transaction == WITHDRAW) throw new IllegalStateException("\nCASH TO WITHDRAW SHOULD NOT BE GREATER THAN 80% \nOR EQUAL TO CURRENT SAVINGS\n");
-                        if (transaction == DEPOSIT) status = ATM_SERVICE.updateClientSavingsByAccountNumber().apply(client.accountNumber(), client.savings() + cashToProcess);
-                        if (transaction == CHECK_BALANCE) cashToProcess = ATM_SERVICE.getClientSavingsByAccountNumber().apply(client.accountNumber());
-                        else if (transaction == WITHDRAW) status = ATM_SERVICE.updateClientSavingsByAccountNumber().apply($an, (client.savings() - cashToProcess));
-                        else if (transaction == LOAN) status = ATM_SERVICE.requestLoan().apply(
+                        if (transaction == DEPOSIT) status = service.updateClientSavingsByAccountNumber().apply(client.accountNumber(), client.savings() + cashToProcess);
+                        if (transaction == CHECK_BALANCE) cashToProcess = service.getClientSavingsByAccountNumber().apply(client.accountNumber());
+                        else if (transaction == WITHDRAW) status = service.updateClientSavingsByAccountNumber().apply($an, (client.savings() - cashToProcess));
+                        else if (transaction == LOAN) status = service.requestLoan().apply(
                                 new Loan(
                                         client.accountNumber(),
                                         LocalDate.now(),
@@ -692,7 +691,7 @@ public class Atm {
             // TODO: implement and add comment
             private static void viewMessages(Scanner scanner) {
                 println(PURPLE_BOLD_BRIGHT + "MESSAGES" + RESET);
-                ATM_SERVICE.getMessage().apply($an)
+                service.getMessage().apply($an)
                         .entrySet()
                         .stream()
                         .filter(e -> e.getKey().equals($an))
@@ -701,6 +700,7 @@ public class Atm {
                         .toList()
                         .forEach(Print::println);
             }
+
             /**
              * Used to check the pin of the account before proceeding with a transaction.
              * Locks the account if pin is incorrect 3 times.
@@ -726,7 +726,7 @@ public class Atm {
                         break;
                     }
                     if (attempts == 0) {
-                        ATM_SERVICE.updateClientAccountStatusByAccountNumber().apply(client.accountNumber(), true);
+                        service.updateClientAccountStatusByAccountNumber().apply(client.accountNumber(), true);
                         throw new IllegalStateException(LOCKED_ACCOUNT_MESSAGE + RESET);
                     }
                 }
