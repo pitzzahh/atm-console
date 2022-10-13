@@ -1,34 +1,35 @@
 package io.github.pitzzahh.atm_console;
 
-import java.util.*;
-import java.time.LocalDate;
-import java.text.NumberFormat;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-import java.util.function.Predicate;
-import static java.lang.System.exit;
-import java.util.concurrent.TimeUnit;
-import io.github.pitzzahh.atm.dao.AtmDAO;
-import io.github.pitzzahh.atm.entity.Loan;
-import com.github.pitzzahh.utilities.Print;
-import io.github.pitzzahh.atm.entity.Client;
-import io.github.pitzzahh.atm.entity.Message;
-import io.github.pitzzahh.atm.service.AtmService;
-import com.github.pitzzahh.utilities.SecurityUtil;
-import io.github.pitzzahh.atm.entity.LockedAccount;
-import com.github.pitzzahh.utilities.classes.Person;
-import static com.github.pitzzahh.utilities.Print.print;
-import com.github.pitzzahh.utilities.classes.enums.Role;
-import static com.github.pitzzahh.utilities.Print.println;
-import com.github.pitzzahh.utilities.classes.enums.Gender;
-import com.github.pitzzahh.utilities.classes.enums.Status;
-import io.github.pitzzahh.atm.database.DatabaseConnection;
-import static com.github.pitzzahh.utilities.classes.TextColors.*;
-import static com.github.pitzzahh.utilities.validation.Validator.*;
-import static com.github.pitzzahh.utilities.classes.enums.Role.ADMIN;
-import static com.github.pitzzahh.utilities.classes.enums.Role.CLIENT;
-import static com.github.pitzzahh.utilities.classes.enums.Status.SUCCESS;
 import static com.github.pitzzahh.utilities.classes.enums.Status.CANNOT_PERFORM_OPERATION;
+import static com.github.pitzzahh.utilities.classes.enums.Status.SUCCESS;
+import static com.github.pitzzahh.utilities.classes.enums.Role.CLIENT;
+import static com.github.pitzzahh.utilities.classes.enums.Role.ADMIN;
+import static com.github.pitzzahh.utilities.validation.Validator.*;
+import static com.github.pitzzahh.utilities.classes.TextColors.*;
+import io.github.pitzzahh.atm.database.DatabaseConnection;
+import com.github.pitzzahh.utilities.classes.enums.Status;
+import com.github.pitzzahh.utilities.classes.enums.Gender;
+import static com.github.pitzzahh.utilities.Print.println;
+import com.github.pitzzahh.utilities.classes.enums.Role;
+import static com.github.pitzzahh.utilities.Print.print;
+import io.github.pitzzahh.atm.dao.AtmDAOImplementation;
+import com.github.pitzzahh.utilities.classes.Person;
+import io.github.pitzzahh.atm.entity.LockedAccount;
+import com.github.pitzzahh.utilities.SecurityUtil;
+import io.github.pitzzahh.atm.service.AtmService;
+import io.github.pitzzahh.atm.entity.Message;
+import io.github.pitzzahh.atm.entity.Client;
+import com.github.pitzzahh.utilities.Print;
+import io.github.pitzzahh.atm.entity.Loan;
+import io.github.pitzzahh.atm.dao.AtmDAO;
+import java.util.concurrent.TimeUnit;
+import static java.lang.System.exit;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
+import java.util.regex.Pattern;
+import java.text.NumberFormat;
+import java.time.LocalDate;
+import java.util.*;
 
 /**
  * Automated Teller Machine.
@@ -37,9 +38,9 @@ import static com.github.pitzzahh.utilities.classes.enums.Status.CANNOT_PERFORM_
  */
 public class Atm {
 
-    private static AtmDAO atmDAO;
+    private static AtmDAO atmDAO = new AtmDAOImplementation();
     private static AtmService service;
-    private static DatabaseConnection databaseConnection;
+    private static DatabaseConnection databaseConnection = new DatabaseConnection();
     private static final Hashtable<String, Client> CLIENTS = new Hashtable<>();
     private static final Hashtable<String, List<Loan>> LOANS = new Hashtable<>();
     private static final Hashtable<String, Message> MESSAGES = new Hashtable<>();
@@ -51,12 +52,11 @@ public class Atm {
     @SuppressWarnings("InfiniteLoopStatement")
     public static void main(String[] args)  {
         service = new AtmService(atmDAO, databaseConnection);
-        service.setDataSource().accept(service
-                        .connection
+        service.setDataSource().accept(databaseConnection
                         .setDriverClassName("org.postgresql.Driver")
-                        .setUrl("jdbc:postgresql://localhost/atm")
-                        .setUsername("postgres")
-                        .setPassword("!Password123")
+                        .setUrl("jdbc:postgresql://localhost/{database name}")
+                        .setUsername("{username}")
+                        .setPassword("{password}")
                         .getDataSource()
         );
 
@@ -83,6 +83,8 @@ public class Atm {
     protected static class Machine {
 
         private static final String LOCKED_ACCOUNT_MESSAGE = "\nACCOUNT LOCKED\nPLEASE CONTACT THE ADMINISTRATOR TO VERIFY YOUR IDENTITY AND UNLOCK YOUR ACCOUNT\n";
+
+        // keyword for administrator: decrypt using util-classes SecurityUtil.decrupt(String); method
         private static final String $adm = "QGRtMW4xJHRyNHQwcg==";
         private static String $an;
         private static final int DEPOSIT = 1;
@@ -267,21 +269,23 @@ public class Atm {
 
                 print(BLUE_BOLD_BRIGHT + "Enter client address   : ");
                 address = scanner.nextLine().toUpperCase().trim();
-                List<String> b = new ArrayList<>();
+                var b = (List<String>) new ArrayList<String>();
                 var year = 2000;
                 var month = 1;
                 var day = 1;
                 do {
                     print(PURPLE_BOLD_BRIGHT + "Enter client birthdate : ");
                     birthDate = scanner.nextLine().trim();
-                    if (isWholeNumber().or(isDecimalNumber()).or(isString()).test(birthDate)) throw new IllegalArgumentException("\nINVALID BIRTHDATE FORMAT, VALID FORMAT: (YYYY-MM-dd)\n");
-                    b = Arrays.stream(birthDate.split("-")).toList();
-                    year = Integer.parseInt(b.get(0));
-                    month = Integer.parseInt(b.get(1));
-                    day = Integer.parseInt(b.get(2));
-                    if (year < 1850 || year > 2029) println(RED_BOLD_BRIGHT + String.format("\nINVALID YEAR: %s\n", String.valueOf(year)) + RESET);
-                    if (month <= 0 || month > 12) println(RED_BOLD_BRIGHT + String.format("\nINVALID MONTH: %s\n", String.valueOf(month)) + RESET);
-                    if (day <= 0 || (day > 31 && !LocalDate.of(year, month, day).isLeapYear())) println(RED_BOLD_BRIGHT + String.format("\nINVALID DAY: %s\n", String.valueOf(day)) + RESET);
+                    if (isBirthDateValid().negate().test(birthDate)) println(RED_BOLD_BRIGHT + "\nINVALID BIRTHDATE FORMAT, VALID FORMAT: (YYYY-MM-dd)\n" + RESET);
+                    else {
+                        b = Arrays.stream(birthDate.split("-")).collect(Collectors.toList());
+                        year = Integer.parseInt(b.get(0));
+                        month = Integer.parseInt(b.get(1));
+                        day = Integer.parseInt(b.get(2));
+                        if (year < 1850 || year > 2029) println(RED_BOLD_BRIGHT + String.format("\nINVALID YEAR: %s\n", String.valueOf(year)) + RESET);
+                        if (month <= 0 || month > 12) println(RED_BOLD_BRIGHT + String.format("\nINVALID MONTH: %s\n", String.valueOf(month)) + RESET);
+                        if (day <= 0 || (day > 31 && !LocalDate.of(year, month, day).isLeapYear())) println(RED_BOLD_BRIGHT + String.format("\nINVALID DAY: %s\n", String.valueOf(day)) + RESET);
+                    }
                 } while (isBirthDateValid().negate().test(birthDate));
                 return new Client(
                         an,
