@@ -18,6 +18,8 @@ Automated teller machine application that runs on a command line interface.
 - access using administrator account (credentials can be found in the code)
 - access using client account
 
+---
+
 <div>
     <p style="font-size: 2em">Admin Interface</p>
     <p align="left">
