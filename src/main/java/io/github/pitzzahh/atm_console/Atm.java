@@ -1,35 +1,30 @@
 package io.github.pitzzahh.atm_console;
 
-import static com.github.pitzzahh.utilities.classes.enums.Status.CANNOT_PERFORM_OPERATION;
-import static com.github.pitzzahh.utilities.classes.enums.Status.SUCCESS;
-import static com.github.pitzzahh.utilities.classes.enums.Role.CLIENT;
-import static com.github.pitzzahh.utilities.classes.enums.Role.ADMIN;
-import static com.github.pitzzahh.utilities.validation.Validator.*;
-import static com.github.pitzzahh.utilities.classes.TextColors.*;
-import io.github.pitzzahh.atm.database.DatabaseConnection;
-import com.github.pitzzahh.utilities.classes.enums.Status;
-import com.github.pitzzahh.utilities.classes.enums.Gender;
-import static com.github.pitzzahh.utilities.Print.println;
-import com.github.pitzzahh.utilities.classes.enums.Role;
-import static com.github.pitzzahh.utilities.Print.print;
-import io.github.pitzzahh.atm.dao.AtmDAOImplementation;
-import com.github.pitzzahh.utilities.classes.Person;
-import io.github.pitzzahh.atm.entity.LockedAccount;
-import com.github.pitzzahh.utilities.SecurityUtil;
-import io.github.pitzzahh.atm.service.AtmService;
-import io.github.pitzzahh.atm.entity.Message;
+import io.github.pitzzahh.atm.dao.InMemory;
 import io.github.pitzzahh.atm.entity.Client;
-import com.github.pitzzahh.utilities.Print;
 import io.github.pitzzahh.atm.entity.Loan;
-import io.github.pitzzahh.atm.dao.AtmDAO;
-import java.util.concurrent.TimeUnit;
-import static java.lang.System.exit;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
-import java.util.regex.Pattern;
+import io.github.pitzzahh.atm.entity.LockedAccount;
+import io.github.pitzzahh.atm.entity.Message;
+import io.github.pitzzahh.atm.service.AtmService;
+import io.github.pitzzahh.util.utilities.Print;
+import io.github.pitzzahh.util.utilities.SecurityUtil;
+import io.github.pitzzahh.util.utilities.classes.Person;
+import io.github.pitzzahh.util.utilities.classes.enums.Gender;
+import io.github.pitzzahh.util.utilities.classes.enums.Role;
+import io.github.pitzzahh.util.utilities.classes.enums.Status;
 import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import static io.github.pitzzahh.util.utilities.Print.*;
+import static io.github.pitzzahh.util.utilities.classes.Colors.*;
+import static io.github.pitzzahh.util.utilities.classes.enums.Role.*;
+import static io.github.pitzzahh.util.utilities.classes.enums.Status.*;
+import static io.github.pitzzahh.util.utilities.validation.Validator.*;
+import static java.lang.System.exit;
 
 /**
  * Automated Teller Machine.
@@ -38,9 +33,7 @@ import java.util.*;
  */
 public class Atm {
 
-    private static AtmDAO atmDAO = new AtmDAOImplementation();
     private static AtmService service;
-    private static DatabaseConnection databaseConnection = new DatabaseConnection();
     private static final Hashtable<String, Client> CLIENTS = new Hashtable<>();
     private static final Hashtable<String, List<Loan>> LOANS = new Hashtable<>();
     private static final Hashtable<String, Message> MESSAGES = new Hashtable<>();
@@ -51,14 +44,7 @@ public class Atm {
      */
     @SuppressWarnings("InfiniteLoopStatement")
     public static void main(String[] args)  {
-        service = new AtmService(atmDAO, databaseConnection);
-        service.setDataSource().accept(databaseConnection
-                        .setDriverClassName("org.postgresql.Driver")
-                        .setUrl("jdbc:postgresql://localhost/{database name}")
-                        .setUsername("{username}")
-                        .setPassword("{password}")
-                        .getDataSource()
-        );
+        service = new AtmService(new InMemory());
 
         final var SCANNER = new Scanner(System.in);
         Machine.loadClients();
@@ -162,7 +148,7 @@ public class Atm {
                         choice = scanner.nextLine().trim();
                         switch (choice) {
                             case "1" -> {
-                                var status = createClient(scanner);
+                                Status status = createClient(scanner);
                                 println(status == SUCCESS ? BLUE_BOLD_BRIGHT + "\nCLIENT ADDED SUCCESSFULLY\n" : RED_BOLD_BRIGHT + "\nERROR ADDING CLIENT\n" + RESET);
                             }
                             case "2" -> {
@@ -247,13 +233,13 @@ public class Atm {
                     } catch (RuntimeException runtimeException) {
                         println(RED_BOLD_BRIGHT +  runtimeException.getMessage() + RESET);
                     }
-                } while (isIdValid().negate().test(an) || (an.length() < 9 || an.length() > 9) || doesExist);
+                } while (isIdValid().negate().test(an) || (an.length() != 9) || doesExist);
 
                 do {
                     print(PURPLE_BOLD_BRIGHT + "Enter account pin   : ");
                     pin = scanner.nextLine().trim();
-                    if (isWholeNumber().negate().test(pin) || (pin.length() < 6 || pin.length() > 6)) println(RED_BOLD_BRIGHT + "\nPIN SHOULD BE 6 DIGITS\n" + RESET);
-                } while (isWholeNumber().negate().test(pin) || (pin.length() < 6 || pin.length() > 6));
+                    if (isWholeNumber().negate().test(pin) || (pin.length() != 6)) println(RED_BOLD_BRIGHT + "\nPIN SHOULD BE 6 DIGITS\n" + RESET);
+                } while (isWholeNumber().negate().test(pin) || (pin.length() != 6));
 
                 print(YELLOW_BOLD_BRIGHT + "Enter client first name: ");
                 firstName = scanner.nextLine().toUpperCase().trim();
@@ -284,7 +270,7 @@ public class Atm {
                         day = Integer.parseInt(b.get(2));
                         if (year < 1850 || year > 2029) println(RED_BOLD_BRIGHT + String.format("\nINVALID YEAR: %s\n", String.valueOf(year)) + RESET);
                         if (month <= 0 || month > 12) println(RED_BOLD_BRIGHT + String.format("\nINVALID MONTH: %s\n", String.valueOf(month)) + RESET);
-                        if (day <= 0 || (day > 31 && !LocalDate.of(year, month, day).isLeapYear())) println(RED_BOLD_BRIGHT + String.format("\nINVALID DAY: %s\n", String.valueOf(day)) + RESET);
+                        if (day <= 0) println(RED_BOLD_BRIGHT + String.format("\nINVALID DAY: %s\n", String.valueOf(day)) + RESET);
                     }
                 } while (isBirthDateValid().negate().test(birthDate));
                 return new Client(
@@ -334,10 +320,7 @@ public class Atm {
              */
             protected static void viewAllClients() throws IllegalStateException {
                 checkIfThereAreClientsAvailable();
-                CLIENTS.entrySet()
-                        .stream()
-                        .map(Map.Entry::getValue)
-                        .forEach(Print::println);
+                CLIENTS.values().forEach(Print::println);
             }
 
             /**
@@ -404,7 +387,7 @@ public class Atm {
                             "║║║╠═╣║║║╠═╣║ ╦║╣   ╠═╣║  ║  ║ ║║ ║║║║ ║   ║  ║ ║╠═╣║║║╚═╗\n" +
                             "╩ ╩╩ ╩╝╚╝╩ ╩╚═╝╚═╝  ╩ ╩╚═╝╚═╝╚═╝╚═╝╝╚╝ ╩   ╩═╝╚═╝╩ ╩╝╚╝╚═╝\n");
                     println(RED_BOLD_BRIGHT + (LOAN_REQUESTS.size() > 1 ? "LIST OF LOANS" : "LOAN") + "\n");
-                    LOAN_REQUESTS.stream().forEach(Print::println);
+                    LOAN_REQUESTS.forEach(Print::println);
                     println(PURPLE_BOLD + ":" + BLUE_BOLD_BRIGHT   + " 1 " + PURPLE_BOLD_BRIGHT + ": " + BLUE_BOLD_BRIGHT   + "APPROVE LOAN");
                     println(PURPLE_BOLD + ":" + YELLOW_BOLD_BRIGHT + " 2 " + PURPLE_BOLD_BRIGHT + ": " + YELLOW_BOLD_BRIGHT + "DECLINE LOAN");
                     println(PURPLE_BOLD + ":" + RED_BOLD_BRIGHT    + " 3 " + PURPLE_BOLD_BRIGHT + ": " + RED_BOLD_BRIGHT    + "REMOVE LOAN");
@@ -547,9 +530,8 @@ public class Atm {
              * @return a {@code List<Loan>}
              */
             private static List<Loan> getAllLoanRequests() {
-                return LOANS.entrySet()
+                return LOANS.values()
                         .stream()
-                        .map(Map.Entry::getValue)
                         .flatMap(Collection::stream)
                         .filter(l -> !l.isDeclined() && l.pending())
                         .collect(Collectors.toList());
@@ -634,22 +616,30 @@ public class Atm {
                         print(PURPLE_BOLD_BRIGHT);
                         println(
                                 (transaction == DEPOSIT) ?
-                                        "╔╦╗╔═╗╔═╗╔═╗╔═╗╦╔╦╗\n" +
-                                        " ║║║╣ ╠═╝║ ║╚═╗║ ║ \n" +
-                                        "═╩╝╚═╝╩  ╚═╝╚═╝╩ ╩ \n" :
+                                        """
+                                                ╔╦╗╔═╗╔═╗╔═╗╔═╗╦╔╦╗
+                                                 ║║║╣ ╠═╝║ ║╚═╗║ ║\s
+                                                ═╩╝╚═╝╩  ╚═╝╚═╝╩ ╩\s
+                                                """ :
                                         (transaction == CHECK_BALANCE) ?
-                                                "╔═╗╦ ╦╔═╗╔═╗╦╔═  ╔╗ ╔═╗╦  ╔═╗╔╗╔╔═╗╔═╗\n" +
-                                                "║  ╠═╣║╣ ║  ╠╩╗  ╠╩╗╠═╣║  ╠═╣║║║║  ║╣ \n" +
-                                                "╚═╝╩ ╩╚═╝╚═╝╩ ╩  ╚═╝╩ ╩╩═╝╩ ╩╝╚╝╚═╝╚═╝\n" :
+                                                """
+                                                        ╔═╗╦ ╦╔═╗╔═╗╦╔═  ╔╗ ╔═╗╦  ╔═╗╔╗╔╔═╗╔═╗
+                                                        ║  ╠═╣║╣ ║  ╠╩╗  ╠╩╗╠═╣║  ╠═╣║║║║  ║╣\s
+                                                        ╚═╝╩ ╩╚═╝╚═╝╩ ╩  ╚═╝╩ ╩╩═╝╩ ╩╝╚╝╚═╝╚═╝
+                                                        """ :
                                             (transaction == WITHDRAW) ?
-                                                    "╦ ╦╦╔╦╗╦ ╦╔╦╗╦═╗╔═╗╦ ╦\n" +
-                                                    "║║║║ ║ ╠═╣ ║║╠╦╝╠═╣║║║\n" +
-                                                    "╚╩╝╩ ╩ ╩ ╩═╩╝╩╚═╩ ╩╚╩╝\n" :
+                                                    """
+                                                            ╦ ╦╦╔╦╗╦ ╦╔╦╗╦═╗╔═╗╦ ╦
+                                                            ║║║║ ║ ╠═╣ ║║╠╦╝╠═╣║║║
+                                                            ╚╩╝╩ ╩ ╩ ╩═╩╝╩╚═╩ ╩╚╩╝
+                                                            """ :
                                                     (transaction == LOAN) ?
-                                                            "╦  ╔═╗╔═╗╔╗╔\n" +
-                                                            "║  ║ ║╠═╣║║║\n" +
-                                                            "╩═╝╚═╝╩ ╩╝╚╝\n" :
-                                                            RED_BOLD_BRIGHT + "UNKNOWN PROCESSS"
+                                                            """
+                                                                    ╦  ╔═╗╔═╗╔╗╔
+                                                                    ║  ║ ║╠═╣║║║
+                                                                    ╩═╝╚═╝╩ ╩╝╚╝
+                                                                    """ :
+                                                            RED_BOLD_BRIGHT + "UNKNOWN PROCESS"
                         );
                         if (transaction != CHECK_BALANCE) {
                             println(YELLOW_BOLD_BRIGHT + ": ENTER CASH AMOUNT : ");
@@ -718,7 +708,7 @@ public class Atm {
                 if (client.isLocked()) throw new IllegalAccessException("\nACCOUNT IS LOCKED\nCANNOT PROCEED TRANSACTION\n");
                 var isLoggedIn = false;
                 var attempts = 3;
-                while (attempts != 0) {
+                while (true) {
                     print(BLUE_BOLD_BRIGHT + "ENTER PIN: ");
                     var pin = scanner.nextLine().trim();
                     if (!client.pin().equals(pin)) {
@@ -794,14 +784,14 @@ public class Atm {
     }
 
     /**
-     * Cheks the account number that was inputted if valid ornot.
+     * Checks the account number that was inputted if valid or not.
      * @param accountNumber the account number inputted.
      * @throws IllegalArgumentException if input is invalid.
      */
     private static void checkAccountNumberInput(String accountNumber) throws IllegalArgumentException {
         if (isDecimalNumber().test(accountNumber)) throw new IllegalArgumentException("\nACCOUNT NUMBER IS A WHOLE NUMBER\n");
         else if (isWholeNumber().negate().test(accountNumber)) throw new IllegalArgumentException("\nACCOUNT NUMBER IS A NUMBER\n");
-        else if (isWholeNumber().negate().test(accountNumber) || (accountNumber.length() < 9 || accountNumber.length() > 9)) throw new IllegalArgumentException("\nACCOUNT NUMBER SHOULD BE 9 DIGITS\n");
+        else if (isWholeNumber().negate().test(accountNumber) || (accountNumber.length() != 9)) throw new IllegalArgumentException("\nACCOUNT NUMBER SHOULD BE 9 DIGITS\n");
     }
 
     /**
